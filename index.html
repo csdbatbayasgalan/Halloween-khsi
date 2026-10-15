@@ -682,15 +682,23 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
       return true;
     }
 
-    function start(){
-      if(!ctx && !build()) return;
-      if(ctx.state === "suspended") ctx.resume();
+    function fadeIn(){
       var t = ctx.currentTime;
+      nextT = Math.max(nextT, t + 0.1);
+      pump();
       master.gain.cancelScheduledValues(t);
       master.gain.setValueAtTime(master.gain.value, t);
       master.gain.linearRampToValueAtTime(0.75, t + 1.6);
       on = true; btn.textContent = "🔊"; btn.classList.remove("off"); btn.title = "Хөгжим унтраах";
       try { localStorage.setItem("zeely.snd", "1"); } catch(e){}
+    }
+    function start(){
+      if(!ctx && !build()) return;
+      if(ctx.state === "running"){ fadeIn(); return; }
+      /* хөтөч хориглосон бол resume амжилттай болсон хойно л "асав" гэж тооцно */
+      var r = ctx.resume();
+      if(r && r.then) r.then(function(){ if(ctx.state === "running") fadeIn(); }, function(){});
+      else if(ctx.state === "running") fadeIn();
     }
     function stop(){
       if(ctx && master){
@@ -715,19 +723,20 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
 
     var want = true;
     try { want = localStorage.getItem("zeely.snd") !== "0"; } catch(e){}
+    var EVS = ["pointerdown","pointerup","keydown","pointermove","scroll","touchstart","touchend","click"];
     function kick(){
-      ["pointerdown","keydown","pointermove","scroll","touchstart"].forEach(function(ev){
-        document.removeEventListener(ev, kick, true);
-      });
-      if(want && !on) start();
+      if(!want) return;
+      start();
+      /* resume нь асинхрон тул үнэхээр ажилласан эсэхийг шалгаад л сонсогчдоо салгана */
+      setTimeout(function(){
+        if(ctx && ctx.state === "running"){
+          EVS.forEach(function(ev){ document.removeEventListener(ev, kick, true); });
+        }
+      }, 60);
     }
     if(want){
       try { start(); } catch(e){}
-      if(!ctx || ctx.state !== "running"){
-        ["pointerdown","keydown","pointermove","scroll","touchstart"].forEach(function(ev){
-          document.addEventListener(ev, kick, true);
-        });
-      }
+      EVS.forEach(function(ev){ document.addEventListener(ev, kick, true); });
     }
   })();
 
