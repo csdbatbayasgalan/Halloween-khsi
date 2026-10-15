@@ -68,8 +68,9 @@ body{
 .banner{position:relative;z-index:1;width:100%;border-bottom:5px solid var(--ink);
   box-shadow:0 6px 0 rgba(23,19,16,.35);background:var(--ink)}
 /* 3:2 харьцаатай зураг: өндөр нь 66.7vw-ээс хэтрэхгүй тул нарийн дэлгэцэнд бүтэн харагдана */
-.banner img{display:block;width:100%;height:66.7vw;object-fit:cover;object-position:50% 100%}
-@media (min-width:1000px){.banner img{height:min(90vh,66.7vw);height:min(90svh,66.7vw)}}
+.banner img{display:block;width:100%;height:66.7vw;object-fit:contain;
+  object-position:50% 100%;background:var(--orange)}
+@media (min-width:1000px){.banner img{height:min(88vh,66.7vw);height:min(88svh,66.7vw)}}
 
 /* --- гарчиг --- */
 h1{font-family:var(--display);font-weight:900;font-size:clamp(2.5rem,13vw,3.6rem);
@@ -583,7 +584,7 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
      Хоосон бол (Claude дээр) Claude-ийн өгөгдлийн сан ашиглана.
      Өөрийн сайт дээр нийтлэг жагсаалт ажиллуулахын тулд sheet-rsvp.gs-ээ
      Apps Script дээр deploy хийгээд гарах /exec хаягийг доор буулгана. */
-  var SHEET_URL = "";
+  var SHEET_URL = "https://script.google.com/macros/s/AKfycbx4_H55nq0y1DOWAFUsrohWWWQOZ1RZrB90DyILzt4NkUOaAJzmI_vwkug_V1bao0iL/exec";
 
   var db = null, uid = null, local = [];
   var myId = "";
