@@ -584,7 +584,7 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
      Хоосон бол (Claude дээр) Claude-ийн өгөгдлийн сан ашиглана.
      Өөрийн сайт дээр нийтлэг жагсаалт ажиллуулахын тулд sheet-rsvp.gs-ээ
      Apps Script дээр deploy хийгээд гарах /exec хаягийг доор буулгана. */
-  var SHEET_URL = "https://script.google.com/macros/s/AKfycbx4_H55nq0y1DOWAFUsrohWWWQOZ1RZrB90DyILzt4NkUOaAJzmI_vwkug_V1bao0iL/exec";
+  var SHEET_URL = "https://script.google.com/macros/s/AKfycbzzIOaNl0KQa8bSE-WTa4doSVolsG0ZFDh0byRZ2nc4f4aVbcxSdLS1ha1M3dASCQBT/exec";
 
   var db = null, uid = null, local = [];
   var myId = "";
@@ -630,27 +630,34 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
 
   /* --- Google Sheet (өөрийн сайт дээрх нийтлэг жагсаалт) --- */
   var sheetTimer = 0;
+  function renderRows(rows){
+    if(!rows || !rows.length){ render([]); return; }
+    var list = rows.map(function(v){
+      return { id: String(v.id || ""), name: String(v.name || "").slice(0, 24),
+               going: v.going === true || v.going === "true" };
+    });
+    render(list);
+    var mine = list.filter(function(x){ return x.id === myId; })[0];
+    if(mine && !nameEl.value){ nameEl.value = mine.name; mark(mine.going); }
+  }
   function sheetLoad(){
     fetch(SHEET_URL + "?t=" + Date.now())
       .then(function(r){ return r.json(); })
-      .then(function(rows){
-        if(!rows || !rows.length){ render([]); return; }
-        var list = rows.map(function(v){
-          return { id: String(v.id || ""), name: String(v.name || "").slice(0, 24), going: v.going === true || v.going === "true" };
-        });
-        render(list);
-        var mine = list.filter(function(x){ return x.id === myId; })[0];
-        if(mine && !nameEl.value){ nameEl.value = mine.name; mark(mine.going); }
-      })
+      .then(renderRows)
       .catch(function(){});
   }
   function sheetSave(nm, going, done, fail){
-    fetch(SHEET_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ id: myId, name: nm, going: going })
-    }).then(function(r){ return r.json(); })
-      .then(function(){ done(); sheetLoad(); })
+    var u = SHEET_URL + "?id=" + encodeURIComponent(myId)
+          + "&name=" + encodeURIComponent(nm)
+          + "&going=" + (going ? "1" : "0")
+          + "&t=" + Date.now();
+    fetch(u)
+      .then(function(r){ return r.json(); })
+      .then(function(rows){
+        if(rows && rows.error) throw new Error(rows.error);
+        done();
+        if(rows && rows.length) renderRows(rows);
+      })
       .catch(fail);
   }
 
