@@ -213,7 +213,8 @@ button:focus-visible{outline:3px solid var(--purple);outline-offset:3px}
 .doll.pumpkin{transform-origin:50% 50%;filter:drop-shadow(3px 4px 0 rgba(23,19,16,.35))}
 .doll.pumpkin .rig{animation:none}
 .doll.ghost{transform-origin:50% 45%;filter:drop-shadow(3px 4px 0 rgba(23,19,16,.3))}
-.doll img{width:100%;height:auto;display:block;-webkit-user-drag:none;user-select:none}
+.doll{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.doll img,.doll svg{width:100%;height:auto;display:block;-webkit-user-drag:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;pointer-events:none}
 .rig{position:relative;display:block;transform-origin:50% 20%;
   animation:wobble 1.6s ease-in-out infinite alternate}
 .rig .bse{width:100%;height:auto;display:block}
@@ -366,7 +367,7 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
   </section>
 
   <footer>KHSI Engagement team · Halloween 2026<br>
-    <span class="credit">Developed by ProJect manager Baysaa</span></footer>
+    <span class="credit">Developed by Project manager Baysaa</span></footer>
 
   </div>
 </div>
@@ -868,6 +869,9 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
       if(b.moved < 6) say(b, pick(b.tap), true);
     }
 
+    el.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+    el.addEventListener("dragstart", function(e){ e.preventDefault(); });
+    el.addEventListener("touchstart", function(e){ e.preventDefault(); }, {passive:false});
     el.addEventListener("pointermove", onMove, {passive:false});
     el.addEventListener("pointerup", release);
     el.addEventListener("pointercancel", release);
