@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Шөнийн ээлж</title>
 <style>:root{padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0)}html{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+<script>
+window.__rsvpBoot = (function(){
+  var u = "https://script.google.com/macros/s/AKfycbzzIOaNl0KQa8bSE-WTa4doSVolsG0ZFDh0byRZ2nc4f4aVbcxSdLS1ha1M3dASCQBT/exec";
+  try { return fetch(u + "?t=" + Date.now()).then(function(r){ return r.json(); })["catch"](function(){ return null; }); }
+  catch(e){ return null; }
+})();
+</script>
 </head>
 <body>
 
@@ -596,10 +605,12 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
   try { local = JSON.parse(localStorage.getItem("zeely.rsvp") || "[]") || []; } catch(e){ local = []; }
   function saveLocal(){ try { localStorage.setItem("zeely.rsvp", JSON.stringify(local)); } catch(e){} }
 
+  var firstLoad = true;
   function render(rows){
     rows = rows.filter(function(r){ return r.going; });
-    countEl.textContent = rows.length;
+    countEl.textContent = (firstLoad && !rows.length) ? "…" : rows.length;
     listEl.innerHTML = "";
+    noneEl.textContent = (firstLoad && !rows.length) ? "Уншиж байна… 👻" : "Эхнийх нь бол! 👻";
     noneEl.hidden = rows.length > 0;
     rows.forEach(function(r){
       var li = document.createElement("li");
@@ -610,7 +621,9 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
       listEl.appendChild(li);
     });
   }
-  render(local);
+  var cached = null;
+  try { cached = JSON.parse(localStorage.getItem("zeely.rows") || "null"); } catch(e){ cached = null; }
+  if(cached && cached.length){ renderRows(cached); } else { render(local); }
 
   function mark(going){
     yesEl.setAttribute("aria-pressed", going === true ? "true" : "false");
@@ -631,7 +644,9 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
   /* --- Google Sheet (өөрийн сайт дээрх нийтлэг жагсаалт) --- */
   var sheetTimer = 0;
   function renderRows(rows){
+    firstLoad = false;
     if(!rows || !rows.length){ render([]); return; }
+    try { localStorage.setItem("zeely.rows", JSON.stringify(rows)); } catch(e){}
     var list = rows.map(function(v){
       return { id: String(v.id || ""), name: String(v.name || "").slice(0, 24),
                going: v.going === true || v.going === "true" };
@@ -641,6 +656,12 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
     if(mine && !nameEl.value){ nameEl.value = mine.name; mark(mine.going); }
   }
   function sheetLoad(){
+    var pre = window.__rsvpBoot;
+    if(pre){
+      window.__rsvpBoot = null;
+      pre.then(function(rows){ if(rows) renderRows(rows); else sheetLoad(); })["catch"](function(){});
+      return;
+    }
     fetch(SHEET_URL + "?t=" + Date.now())
       .then(function(r){ return r.json(); })
       .then(renderRows)
