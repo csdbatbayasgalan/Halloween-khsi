@@ -881,7 +881,8 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
     window.addEventListener("pointerup", release);
     window.addEventListener("pointercancel", release);
     window.addEventListener("blur", function(){ release(null); });
-    if(!opt.ghost) el.addEventListener("dblclick", function(){ pickFace(b); });
+    /* давхар дарахад зураг сонгох цонх гардгийг хаасан */
+    el.addEventListener("dblclick", function(e){ e.preventDefault(); });
     return b;
   }
 
