@@ -297,12 +297,39 @@ button:focus-visible{outline:3px solid var(--purple);outline-offset:3px}
 .inv-foot{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.24em;
   text-transform:uppercase;color:#f6c62a;margin:18px 0 0}
 
-.sndbtn{position:fixed;left:12px;bottom:12px;z-index:70;width:48px;height:48px;padding:0;
-  border-radius:50%;display:grid;place-items:center;font-size:21px;line-height:1;
+#gate{position:fixed;inset:0;z-index:200;display:grid;place-items:center;text-align:center;
+  background:radial-gradient(circle at 50% 35%, #3a1a08, #140905 70%);
+  transition:opacity .5s ease}
+#gate.go{opacity:0;pointer-events:none}
+#gate .g-in{padding:24px}
+#gate .g-eye{font-family:var(--display);font-weight:700;font-size:.7rem;letter-spacing:.3em;
+  text-transform:uppercase;color:#f6c62a;margin:0 0 12px}
+#gate h2{font-family:var(--display);font-weight:900;margin:0 0 6px;line-height:1.05;
+  font-size:clamp(2rem,10vw,3.2rem);color:#f0824a;-webkit-text-stroke:2px #171310;paint-order:stroke fill}
+#gate p{color:#efd9c5;margin:10px 0 22px;font-size:.92rem}
+#gate button{font-family:var(--display);font-weight:900;font-size:1.1rem;padding:14px 28px;
+  border-radius:12px;background:var(--yellow);color:var(--ink);border:3px solid var(--ink);
+  box-shadow:5px 5px 0 var(--ink);cursor:pointer}
+#gate button:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--ink)}
+#gate .g-skip{display:block;margin:16px auto 0;background:none;border:none;box-shadow:none;
+  color:#c9ad98;font-size:.8rem;font-weight:700;text-decoration:underline;padding:6px}
+.sndbtn{position:fixed;left:14px;bottom:14px;z-index:70;height:56px;padding:0 18px 0 14px;
+  border-radius:999px;display:flex;align-items:center;gap:9px;line-height:1;
+  font-family:var(--display);font-weight:900;font-size:.9rem;letter-spacing:.02em;
   background:var(--yellow);color:var(--ink);border:3px solid var(--ink);
-  box-shadow:3px 3px 0 var(--ink);cursor:pointer}
-.sndbtn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
-.sndbtn.off{background:var(--cream-2);opacity:.85}
+  box-shadow:4px 4px 0 var(--ink);cursor:pointer}
+.sndbtn .ic{font-size:24px}
+.sndbtn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.sndbtn.off{background:#f0824a;color:#fff6ea;
+  animation:sndpulse 1.5s ease-in-out infinite}
+@keyframes sndpulse{
+  0%,100%{box-shadow:4px 4px 0 var(--ink), 0 0 0 0 rgba(246,198,42,.65);transform:scale(1)}
+  55%    {box-shadow:4px 4px 0 var(--ink), 0 0 0 16px rgba(246,198,42,0);transform:scale(1.06)}}
+.sndbtn.on .ic{animation:sndwave .9s ease-in-out infinite alternate}
+@keyframes sndwave{from{transform:scale(1)}to{transform:scale(1.18)}}
+@media (prefers-reduced-motion: reduce){.sndbtn.off,.sndbtn.on .ic{animation:none}}
+@media (max-width:420px){.sndbtn{height:50px;padding:0 14px 0 11px;font-size:.8rem}
+  .sndbtn .ic{font-size:20px}}
 #ytwrap{position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;opacity:0;pointer-events:none}
 .credit{display:inline-block;margin-top:7px;font-family:var(--display);font-weight:700;
   font-size:.68rem;letter-spacing:.1em;color:var(--yellow);opacity:.85}
@@ -397,7 +424,16 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
   </div>
 </div>
 
-<button class="sndbtn off" id="snd" type="button" aria-label="Хөгжим" title="Хөгжим асаах">🔇</button>
+<div id="gate" hidden>
+  <div class="g-in">
+    <p class="g-eye">✦ You are summoned ✦</p>
+    <h2>🎃 ШӨНИЙН ЭЭЛЖ 🎃</h2>
+    <p>Хаалгыг нээвэл хөгжим эхэлнэ…</p>
+    <button type="button" id="gateGo">ОРОХ 👻</button>
+    <button type="button" class="g-skip" id="gateMute">Дуугүй орох</button>
+  </div>
+</div>
+<button class="sndbtn off" id="snd" type="button" aria-label="Хөгжим"><span class="ic" id="sndIc">🔇</span><span id="sndTxt">Хөгжим асаах</span></button>
 <div id="ytwrap" aria-hidden="true"></div>
 
 <div class="overlay" id="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="prize-h">
@@ -611,6 +647,14 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
     var btn = document.getElementById("snd"), wrap = document.getElementById("ytwrap");
     if(wrap) wrap.remove();
     var ctx = null, master = null, on = false, sched = 0, nextT = 0, stepI = 0;
+    var bIc = document.getElementById("sndIc"), bTxt = document.getElementById("sndTxt");
+    function setBtn(isOn){
+      bIc.textContent = isOn ? "🔊" : "🔇";
+      bTxt.textContent = isOn ? "Хөгжим" : "Хөгжим асаах";
+      btn.classList.toggle("off", !isOn);
+      btn.classList.toggle("on", isOn);
+      btn.title = isOn ? "Хөгжим унтраах" : "Хөгжим асаах";
+    }
 
     var STEP = 0.75;                                   /* нэг алхмын урт (сек) */
     var BASS = [55.00, 55.00, 49.00, 43.65];           /* A1 A1 G1 F1 */
@@ -689,7 +733,7 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
       master.gain.cancelScheduledValues(t);
       master.gain.setValueAtTime(master.gain.value, t);
       master.gain.linearRampToValueAtTime(0.75, t + 1.6);
-      on = true; btn.textContent = "🔊"; btn.classList.remove("off"); btn.title = "Хөгжим унтраах";
+      on = true; setBtn(true);
       try { localStorage.setItem("zeely.snd", "1"); } catch(e){}
     }
     function start(){
@@ -707,7 +751,7 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
         master.gain.setValueAtTime(master.gain.value, t);
         master.gain.linearRampToValueAtTime(0.0001, t + 0.6);
       }
-      on = false; btn.textContent = "🔇"; btn.classList.add("off"); btn.title = "Хөгжим асаах";
+      on = false; setBtn(false);
       try { localStorage.setItem("zeely.snd", "0"); } catch(e){}
     }
     btn.addEventListener("click", function(){ on ? stop() : start(); });
@@ -734,9 +778,25 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
         }
       }, 60);
     }
+    /* --- "ОРОХ" хаалга: хөтөч хэрэглэгчийн нэг үйлдэлгүйгээр дуу гаргахыг хориглодог --- */
+    var gate = document.getElementById("gate");
+    function closeGate(){
+      gate.classList.add("go");
+      setTimeout(function(){ gate.remove(); }, 600);
+    }
     if(want){
       try { start(); } catch(e){}
-      EVS.forEach(function(ev){ document.addEventListener(ev, kick, true); });
+      setTimeout(function(){
+        if(ctx && ctx.state === "running") return;   /* хөтөч зөвшөөрсөн — хаалга хэрэггүй */
+        gate.hidden = false;
+        document.getElementById("gateGo").addEventListener("click", function(){
+          start(); closeGate();
+        });
+        document.getElementById("gateMute").addEventListener("click", function(){
+          want = false; stop(); closeGate();
+        });
+        EVS.forEach(function(ev){ document.addEventListener(ev, kick, true); });
+      }, 120);
     }
   })();
 
