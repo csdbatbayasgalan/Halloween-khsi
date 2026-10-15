@@ -606,105 +606,127 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
   }
   tick();
 
-  /* ---------- арын хөгжим: кодоор үүсгэсэн spooky ambient ---------- */
+  /* ---------- арын хөгжим: тасралтгүй spooky ambient ---------- */
   (function(){
     var btn = document.getElementById("snd"), wrap = document.getElementById("ytwrap");
     if(wrap) wrap.remove();
-    var ctx = null, master = null, on = false, timer = 0, stepI = 0;
+    var ctx = null, master = null, on = false, sched = 0, nextT = 0, stepI = 0;
 
-    /* минор хэмнэлийн ноотууд (Гц) — A minor маягийн гунигтай өнгө */
-    var BASS = [110.00, 110.00, 98.00, 87.31];          /* A2 A2 G2 F2 */
+    var STEP = 0.75;                                   /* нэг алхмын урт (сек) */
+    var BASS = [55.00, 55.00, 49.00, 43.65];           /* A1 A1 G1 F1 */
     var MEL  = [440.00, 523.25, 493.88, 440.00, 392.00, 440.00, 349.23, 392.00];
 
-    function voice(freq, t, dur, gain, type){
+    function note(freq, t, dur, peak, type){
       var o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = type || "sine"; o.frequency.setValueAtTime(freq, t);
+      o.type = type || "sine";
+      o.frequency.setValueAtTime(freq, t);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(gain, t + 0.08);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      g.gain.linearRampToValueAtTime(peak, t + 0.25);          /* зөөлөн нээлт */
+      g.gain.linearRampToValueAtTime(peak * 0.6, t + dur * 0.6);
+      g.gain.linearRampToValueAtTime(0.0001, t + dur);         /* урт сүүл — завсаргүй */
       o.connect(g); g.connect(master);
-      o.start(t); o.stop(t + dur + 0.05);
+      o.start(t); o.stop(t + dur + 0.1);
     }
 
+    /* тасралтгүй дрон: хоёр бага зэрэг зөрүүтэй осциллятор */
+    function drone(){
+      [110, 110.6, 164.81].forEach(function(f, i){
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = i === 2 ? "sine" : "triangle";
+        o.frequency.value = f;
+        g.gain.value = i === 2 ? 0.018 : 0.030;
+        o.connect(g); g.connect(master); o.start();
+      });
+    }
+
+    /* тогтвортой салхи — маш зөөлөн долгио, тэг хүрэхгүй */
     function wind(){
-      /* цагаан чимээг шүүж "салхи" болгоно */
       var len = ctx.sampleRate * 4;
       var buf = ctx.createBuffer(1, len, ctx.sampleRate);
       var d = buf.getChannelData(0);
       for(var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.5;
       var src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
       var f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 480; f.Q.value = 0.7;
-      var g = ctx.createGain(); g.gain.value = 0.035;
+      var g = ctx.createGain(); g.gain.value = 0.040;
       var lfo = ctx.createOscillator(), lg = ctx.createGain();
-      lfo.frequency.value = 0.07; lg.gain.value = 0.025;
+      lfo.frequency.value = 0.06; lg.gain.value = 0.010;       /* 0.030–0.050 хооронд л хэлбэлзнэ */
       lfo.connect(lg); lg.connect(g.gain);
       src.connect(f); f.connect(g); g.connect(master);
       src.start(); lfo.start();
     }
 
-    function tick(){
-      var t = ctx.currentTime + 0.05;
-      var i = stepI % 8;
-      /* басс — 2 алхам тутамд */
-      if(i % 2 === 0) voice(BASS[(stepI / 2 | 0) % BASS.length], t, 1.6, 0.14, "triangle");
-      /* аяз */
-      voice(MEL[i], t, 0.9, 0.06, "sine");
-      /* өндөр "селеста" цуурай */
-      if(i === 0 || i === 5) voice(MEL[i] * 2, t + 0.12, 1.2, 0.025, "sine");
-      stepI++;
+    /* урьдчилан товлох — setInterval-ийн чичиргээнээс ангид */
+    function pump(){
+      if(!ctx) return;
+      while(nextT < ctx.currentTime + 0.6){
+        var i = stepI % 8;
+        if(i % 2 === 0) note(BASS[((stepI / 2) | 0) % BASS.length], nextT, 2.4, 0.075, "triangle");
+        note(MEL[i], nextT, 1.7, 0.042, "sine");                /* 1.7с > 0.75с алхам → давхцана */
+        if(i === 0 || i === 5) note(MEL[i] * 2, nextT + 0.15, 2.0, 0.016, "sine");
+        nextT += STEP;
+        stepI++;
+      }
+    }
+
+    function build(){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return false;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = 0.0001;
+      var comp = ctx.createDynamicsCompressor();                /* огцом өсөлтийг жигдрүүлнэ */
+      master.connect(comp); comp.connect(ctx.destination);
+      drone(); wind();
+      nextT = ctx.currentTime + 0.1;
+      pump();
+      sched = setInterval(pump, 250);
+      return true;
     }
 
     function start(){
-      if(!ctx){
-        var AC = window.AudioContext || window.webkitAudioContext;
-        if(!AC) return;
-        ctx = new AC();
-        master = ctx.createGain(); master.gain.value = 0.0001;
-        master.connect(ctx.destination);
-        wind();
-        tick();
-        timer = setInterval(tick, 700);
-      }
+      if(!ctx && !build()) return;
       if(ctx.state === "suspended") ctx.resume();
-      master.gain.cancelScheduledValues(ctx.currentTime);
-      master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), ctx.currentTime);
-      master.gain.exponentialRampToValueAtTime(0.55, ctx.currentTime + 1.2);
+      var t = ctx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(master.gain.value, t);
+      master.gain.linearRampToValueAtTime(0.75, t + 1.6);
       on = true; btn.textContent = "🔊"; btn.classList.remove("off"); btn.title = "Хөгжим унтраах";
       try { localStorage.setItem("zeely.snd", "1"); } catch(e){}
     }
     function stop(){
       if(ctx && master){
-        master.gain.cancelScheduledValues(ctx.currentTime);
-        master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
-        master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+        var t = ctx.currentTime;
+        master.gain.cancelScheduledValues(t);
+        master.gain.setValueAtTime(master.gain.value, t);
+        master.gain.linearRampToValueAtTime(0.0001, t + 0.6);
       }
       on = false; btn.textContent = "🔇"; btn.classList.add("off"); btn.title = "Хөгжим асаах";
       try { localStorage.setItem("zeely.snd", "0"); } catch(e){}
     }
     btn.addEventListener("click", function(){ on ? stop() : start(); });
 
-    /* хөтөч дуутай автомат эхлүүлэхийг хориглодог — анхны хүрэлтээр нээнэ */
+    /* таб руу буцаж ирэхэд үргэлжлүүлнэ */
+    document.addEventListener("visibilitychange", function(){
+      if(!ctx || !on) return;
+      if(document.hidden) return;
+      if(ctx.state === "suspended") ctx.resume();
+      nextT = Math.max(nextT, ctx.currentTime + 0.1);
+      pump();
+    });
+
     var want = true;
     try { want = localStorage.getItem("zeely.snd") !== "0"; } catch(e){}
     function kick(){
-      document.removeEventListener("pointerdown", kick, true);
-      document.removeEventListener("keydown", kick, true);
-      document.removeEventListener("pointermove", kick, true);
-      document.removeEventListener("scroll", kick, true);
-      document.removeEventListener("touchstart", kick, true);
+      ["pointerdown","keydown","pointermove","scroll","touchstart"].forEach(function(ev){
+        document.removeEventListener(ev, kick, true);
+      });
       if(want && !on) start();
     }
     if(want){
-      /* эхлээд шууд оролдоно — хөтөч зөвшөөрвөл хуудас нээгдэнгүүт эхэлнэ */
       try { start(); } catch(e){}
-      if(ctx && ctx.state === "running"){
-        /* амжилттай — өөр юу ч хэрэггүй */
-      } else {
-        document.addEventListener("pointerdown", kick, true);
-        document.addEventListener("keydown", kick, true);
-        document.addEventListener("pointermove", kick, true);
-        document.addEventListener("scroll", kick, true);
-        document.addEventListener("touchstart", kick, true);
+      if(!ctx || ctx.state !== "running"){
+        ["pointerdown","keydown","pointermove","scroll","touchstart"].forEach(function(ev){
+          document.addEventListener(ev, kick, true);
+        });
       }
     }
   })();
