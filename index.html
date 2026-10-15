@@ -347,7 +347,7 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
       <p class="youtxt">Чи шүү! 👉</p>
     </div>
     <p class="status" id="status"></p>
-    <button class="linkish" id="change" hidden>Хариултаа өөрчлөх</button>
+    <button class="linkish" id="change" hidden style="display:none!important">Хариултаа өөрчлөх</button>
   </section>
 
   <button class="prize" id="openPrize">
@@ -630,8 +630,8 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
     if(going === null) return;
     nameEl.hidden = true;
     yesEl.hidden = true;
-    changeEl.hidden = false;
-    statusEl.textContent = going ? "Бүртгэгдлээ — уулзацгаая 👻" : "Ойлголоо, дараагийн шөнө уулзъя 🦇";
+    changeEl.hidden = true;
+    statusEl.textContent = going ? "Амжилттай бүртгэгдлээ 👻" : "Ойлголоо, дараагийн шөнө уулзъя 🦇";
     if(youBox) youBox.hidden = !going;
   }
   changeEl.addEventListener("click", function(){
@@ -702,8 +702,8 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
         saveLocal();
         render(local); mark(going);
         statusEl.textContent = going
-          ? "Бүртгэгдлээ 👻 (сүлжээгүй — энэ төхөөрөмжид хадгаллаа)"
-          : "Хадгаллаа (сүлжээгүй).";
+          ? "Амжилттай бүртгэгдлээ 👻"
+          : "Ойлголоо, дараагийн шөнө уулзъя 🦇";
       });
       return;
     }
@@ -795,6 +795,7 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
   var W = window.innerWidth, H = window.innerHeight;
   var big = W < 420 ? 118 : 148;
   var bodies = [];
+  var zTop = 40;
 
   function spawn(opt){
     var el = document.createElement("div");
@@ -825,31 +826,57 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
     bodies.push(b);
 
     el.addEventListener("pointerdown", function(e){
+      if(b.held) return;
       b.held = true; b.moved = 0; b.lastDx = 0;
-      b.px = e.clientX; b.py = e.clientY; b.vx = b.vy = 0;
+      b.pid = e.pointerId;
+      /* барьсан цэгийн зөрүүг хадгална — чирэхэд гулсаж таталдахгүй */
+      b.gx = b.x - e.clientX; b.gy = b.y - e.clientY;
+      b.px = e.clientX; b.py = e.clientY; b.pt = e.timeStamp || performance.now();
+      b.vx = b.vy = 0;
       el.classList.add("held");
-      el.setPointerCapture(e.pointerId);
-      play.appendChild(el);
+      el.style.zIndex = ++zTop;           /* DOM-оос салгахгүй — capture тасрахгүй */
+      try { el.setPointerCapture(e.pointerId); } catch(err){}
       e.preventDefault();
     });
-    el.addEventListener("pointermove", function(e){
-      if(!b.held) return;
-      var dx = e.clientX - b.px, dy = e.clientY - b.py;
-      b.px = e.clientX; b.py = e.clientY;
-      b.moved += Math.abs(dx) + Math.abs(dy);
-      b.x += dx; b.y += dy;
-      b.lastDx = b.lastDx * .6 + dx * .4;
-      b.vx = dx * 15; b.vy = dy * 15;
-    });
+
+    function onMove(e){
+      if(!b.held || e.pointerId !== b.pid) return;
+      if(e.__dollDone === b) return;   /* нэг үйл явдлыг хоёр удаа боловсруулахгүй */
+      e.__dollDone = b;
+      var evs = (e.getCoalescedEvents && e.getCoalescedEvents()) || [e];
+      for(var q = 0; q < evs.length; q++){
+        var ev = evs[q];
+        var now = ev.timeStamp || performance.now();
+        var dt  = Math.max((now - b.pt) / 1000, 0.008);
+        var dx  = ev.clientX - b.px, dy = ev.clientY - b.py;
+        b.px = ev.clientX; b.py = ev.clientY; b.pt = now;
+        b.moved += Math.abs(dx) + Math.abs(dy);
+        b.lastDx = b.lastDx * .7 + dx * .3;
+        /* хурдыг жинхэнэ хугацаагаар бодно — огцом үсрэлт болихгүй */
+        b.vx = Math.max(-2200, Math.min(2200, b.vx * .4 + (dx / dt) * .6));
+        b.vy = Math.max(-2200, Math.min(2200, b.vy * .4 + (dy / dt) * .6));
+      }
+      b.x = b.px + b.gx; b.y = b.py + b.gy;
+      e.preventDefault();
+    }
+
     function release(e){
-      if(!b.held) return;
-      b.held = false; el.classList.remove("held");
-      try { el.releasePointerCapture(e.pointerId); } catch(err){}
+      if(!b.held || (e && e.pointerId != null && e.pointerId !== b.pid)) return;
+      b.held = false; b.pid = null; el.classList.remove("held");
+      try { if(e && e.pointerId != null) el.releasePointerCapture(e.pointerId); } catch(err){}
       b.vrot += b.lastDx * 1.5;
       if(b.moved < 6) say(b, pick(b.tap), true);
     }
+
+    el.addEventListener("pointermove", onMove, {passive:false});
     el.addEventListener("pointerup", release);
     el.addEventListener("pointercancel", release);
+    el.addEventListener("lostpointercapture", release);
+    /* capture алдагдсан тохиолдолд ч гацахгүй байх нөөц сонсогчид */
+    window.addEventListener("pointermove", onMove, {passive:false});
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    window.addEventListener("blur", function(){ release(null); });
     if(!opt.ghost) el.addEventListener("dblclick", function(){ pickFace(b); });
     return b;
   }
@@ -1018,6 +1045,11 @@ footer{text-align:center;font-size:.78rem;font-weight:700;color:#f6d8c9;padding-
         if(d.x > W - d.r){ d.x = W - d.r; d.vx = -Math.abs(d.vx) * .8; d.squash = 1; d.vrot -= 80; }
         if(d.y < d.r){ d.y = d.r; d.vy = Math.abs(d.vy) * .8; d.squash = 1; }
         if(d.y > H - d.r){ d.y = H - d.r; d.vy = -Math.abs(d.vy) * .8; d.squash = 1; }
+      }
+
+      if(d.held){
+        d.x = Math.max(d.r, Math.min(W - d.r, d.x));
+        d.y = Math.max(d.r, Math.min(H - d.r, d.y));
       }
 
       var target = d.held
